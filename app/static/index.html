@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regional EV Energy Optimization Control Tower</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js via CDN with local fallback support -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="brand-logo">⚡</div>
+        <div class="brand-info">
+          <h1>REGIONAL EV ENERGY CONTROL TOWER</h1>
+          <p class="subtitle">1,200 MW Fleet Network | 600 MWh Storage | 5 Indian Metro Clusters</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-network">1,200 MW (60% DC / 40% Swap)</span>
+        <span class="badge badge-storage">600 MWh BESS + Swap Packs</span>
+        <span class="badge badge-renewables">~35% Solar/Wind Open-Access</span>
+        <button id="toggleTaxonomyBtn" class="btn-secondary" title="View Case Constraints vs Assumptions">📋 Parameter Rules</button>
+      </div>
+    </header>
+
+    <!-- Cluster Selector & Scenario Switcher Bar -->
+    <section class="control-panel">
+      <div class="panel-group">
+        <label class="group-label">METRO CLUSTER SELECTION (1,200 MW TOTAL)</label>
+        <div class="cluster-pill-group" id="clusterGroup">
+          <button class="pill active" data-cluster="Delhi NCR">Delhi NCR <span class="pill-spec">320 MW / 160 MWh</span></button>
+          <button class="pill" data-cluster="Mumbai MMR">Mumbai MMR <span class="pill-spec">280 MW / 140 MWh</span></button>
+          <button class="pill" data-cluster="Bengaluru">Bengaluru <span class="pill-spec">240 MW / 120 MWh</span></button>
+          <button class="pill" data-cluster="Hyderabad">Hyderabad <span class="pill-spec">200 MW / 100 MWh</span></button>
+          <button class="pill" data-cluster="Chennai">Chennai <span class="pill-spec">160 MW / 80 MWh</span></button>
+        </div>
+      </div>
+
+      <div class="panel-group">
+        <label class="group-label">OPERATIONAL SCENARIO STRESS TEST</label>
+        <div class="scenario-btn-group" id="scenarioGroup">
+          <button class="scenario-btn active" data-scenario="normal_weekday">
+            <span class="sc-icon">☀️</span>
+            <div class="sc-meta">
+              <strong>Normal Weekday</strong>
+              <small>Baseline diurnal solar + standard ToD</small>
+            </div>
+          </button>
+          <button class="scenario-btn" data-scenario="monsoon_cloudburst">
+            <span class="sc-icon">🌧️</span>
+            <div class="sc-meta">
+              <strong>Monsoon Cloudburst</strong>
+              <small>80% solar collapse & wind gusts</small>
+            </div>
+          </button>
+          <button class="scenario-btn" data-scenario="summer_heatwave">
+            <span class="sc-icon">🔥</span>
+            <div class="sc-meta">
+              <strong>Summer Heatwave (46°C)</strong>
+              <small>+22% AC load & thermal derating</small>
+            </div>
+          </button>
+          <button class="scenario-btn" data-scenario="iex_price_spike">
+            <span class="sc-icon">⚡</span>
+            <div class="sc-meta">
+              <strong>IEX Price Spike</strong>
+              <small>Peak MCP hits cap ₹10.00/kWh</small>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scenario Challenge Banner -->
+    <div class="scenario-alert-bar" id="scenarioAlertBar">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <h4 id="scenarioTitle">Scenario: Normal Weekday</h4>
+        <p id="scenarioDesc">Baseline operating conditions with standard renewable generation and Time-of-Day grid sourcing.</p>
+      </div>
+      <div class="alert-challenge">
+        <strong>Dispatch Focus:</strong> <span id="scenarioChallenge">Optimal economic arbitrage between open-access renewables and peak tariffs.</span>
+      </div>
+    </div>
+
+    <!-- Real-Time KPI Cards (Target vs. Actual vs. Baseline) -->
+    <section class="kpi-grid">
+      <!-- KPI 1: Service Reliability -->
+      <div class="kpi-card" id="kpiReliabilityCard">
+        <div class="kpi-header">
+          <span class="kpi-title">SERVICE RELIABILITY</span>
+          <span class="tag-case">CASE TARGET: ≥ 89.7%</span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiReliability">100.0%</span>
+          <span class="kpi-status-badge pass" id="kpiReliabilityBadge">PASS</span>
+        </div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill" id="kpiReliabilityBar" style="width: 100%;"></div>
+          <div class="kpi-target-marker" style="left: 89.7%;" title="Target: 89.7%"></div>
+          <div class="kpi-baseline-marker" style="left: 78.0%;" title="Baseline: 78.0%"></div>
+        </div>
+        <div class="kpi-benchmarks">
+          <span>Baseline: <strong>78.0%</strong></span>
+          <span>Target: <strong>89.7%</strong></span>
+          <span class="delta-positive" id="kpiReliabilityDelta">+10.3% vs Target</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Energy Loss Rate -->
+      <div class="kpi-card" id="kpiLossCard">
+        <div class="kpi-header">
+          <span class="kpi-title">ENERGY LOSS RATE</span>
+          <span class="tag-case">CASE TARGET: ≤ 8.0%</span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiLossRate">6.8%</span>
+          <span class="kpi-status-badge pass" id="kpiLossBadge">PASS</span>
+        </div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill green" id="kpiLossBar" style="width: 68%;"></div>
+          <div class="kpi-target-marker" style="left: 80%;" title="Ceiling: 8.0%"></div>
+        </div>
+        <div class="kpi-benchmarks">
+          <span>Baseline: <strong>10.0%</strong></span>
+          <span>Ceiling Target: <strong>≤ 8.0%</strong></span>
+          <span class="delta-positive" id="kpiLossDelta">-1.2% under ceiling</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Cluster EBITDA Margin -->
+      <div class="kpi-card" id="kpiEbitdaCard">
+        <div class="kpi-header">
+          <span class="kpi-title">CLUSTER EBITDA MARGIN</span>
+          <span class="tag-case">CASE TARGET: > 12.0%</span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiEbitdaMargin">68.1%</span>
+          <span class="kpi-status-badge pass" id="kpiEbitdaBadge">PASS</span>
+        </div>
+        <div class="kpi-bar-track">
+          <div class="kpi-bar-fill purple" id="kpiEbitdaBar" style="width: 68%;"></div>
+          <div class="kpi-target-marker" style="left: 12%;" title="Min Target: 12.0%"></div>
+        </div>
+        <div class="kpi-benchmarks">
+          <span>Target: <strong>> 12.0%</strong></span>
+          <span>Daily Net EBITDA: <strong id="kpiEbitdaInr">₹23,360,671</strong></span>
+        </div>
+      </div>
+
+      <!-- KPI 4: 5% Uncommitted Reserve Compliance -->
+      <div class="kpi-card" id="kpiReserveCard">
+        <div class="kpi-header">
+          <span class="kpi-title">5% UNCOMMITTED RESERVES</span>
+          <span class="tag-case">HARD MANDATE: ≥ 5.0%</span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiReserve">100%</span>
+          <span class="kpi-status-badge pass" id="kpiReserveBadge">COMPLIANT</span>
+        </div>
+        <div class="kpi-sub-stats">
+          <div class="sub-stat">
+            <span>DC Capacity Reserve:</span>
+            <strong id="kpiDcReserveMw">9.6 MW (5.0%)</strong>
+          </div>
+          <div class="sub-stat">
+            <span>Standby Swap Packs:</span>
+            <strong id="kpiSwapReservePacks">640 packs (5.0%)</strong>
+          </div>
+        </div>
+        <div class="kpi-benchmarks">
+          <span>Priority/Emergency Fleets: <strong>Guaranteed Ready</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Operational Charts Grid -->
+    <main class="charts-main-grid">
+      <!-- Chart 1: Energy Procurement & Dispatch Mix -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title-area">
+            <h3>Hourly Power Procurement & Generation Mix (MW)</h3>
+            <p>Open-Access Solar/Wind (~35% target) vs. DISCOM Grid & IEX Day-Ahead Market</p>
+          </div>
+          <div class="chart-legend-summary" id="energyMixPill">
+            <span class="mix-pill solar">Solar</span>
+            <span class="mix-pill wind">Wind</span>
+            <span class="mix-pill discom">DISCOM ToD</span>
+            <span class="mix-pill iex">IEX Spot</span>
+            <span class="mix-pill bess">BESS Disch</span>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="procurementChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Storage Dynamics (BESS SoC vs Swap Inventory) -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title-area">
+            <h3>Storage State: BESS SoC (%) & Swappable Pack Inventory</h3>
+            <p>Tracking stationary battery energy state & ready swap pack reserves</p>
+          </div>
+          <span class="tag-case">Reserve Line: Hard ≥ 5% Buffer</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="storageChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Dynamic Customer Pricing & IEX Market -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title-area">
+            <h3>Dynamic Customer Tariffs & IEX Spot Price (₹/kWh)</h3>
+            <p>Bounded strictly within ±20% of previous day average (₹10.80 – ₹16.20 / kWh)</p>
+          </div>
+          <span class="tag-case">Bound: ±20% Dynamic Corridor</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="pricingChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: DC Charging Load Satisfaction & Headroom -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title-area">
+            <h3>DC Fast-Charging Load & Emergency Fleet Capacity Headroom</h3>
+            <p>Delivered charging power (MW) vs. uncommitted priority reserve headroom</p>
+          </div>
+          <span class="tag-case">Hard Reserve Headroom ≥ 5%</span>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="demandChart"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal / Drawer: Parameter Taxonomy (Case Constraints vs Illustrative Assumptions) -->
+    <div class="modal-overlay" id="taxonomyModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Parameter Taxonomy & Engineering Assumptions</h2>
+          <button class="close-btn" id="closeTaxonomyBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro">
+            This system strictly separates non-negotiable <strong>Case Study Constraints</strong> from realistic, industry-calibrated <strong>Illustrative Simulation Assumptions</strong>:
+          </p>
+          
+          <div class="taxonomy-section">
+            <h3 class="section-title-case">🔴 CASE STUDY HARD CONSTRAINTS (Mandated)</h3>
+            <table class="taxonomy-table">
+              <thead>
+                <tr>
+                  <th>Parameter / Requirement</th>
+                  <th>Mandated Value / Rule</th>
+                  <th>Mathematical Formulation in MILP</th>
+                </tr>
+              </thead>
+              <tbody id="caseConstraintsTableBody">
+                <tr><td><strong>Total Installed Capacity</strong></td><td><span class="tag-case">1,200 MW</span></td><td>Fixed regional sum across Delhi (320MW), Mumbai (280MW), BLR (240MW), HYD (200MW), MAA (160MW)</td></tr>
+                <tr><td><strong>Capacity Tech Split</strong></td><td><span class="tag-case">60% DC / 40% Swapping</span></td><td>720 MW dedicated to DC fast charging hubs, 480 MW dedicated to battery swap stations</td></tr>
+                <tr><td><strong>Total Storage Volume</strong></td><td><span class="tag-case">600 MWh</span></td><td>360 MWh stationary BESS (grid-scale) + 240 MWh swap-pack inventory (48k packs)</td></tr>
+                <tr><td><strong>Renewable Open-Access Sourcing</strong></td><td><span class="tag-case">~35% Solar/Wind</span></td><td>Inter-state open-access PPA contracts prioritizing clean lowest-cost dispatch</td></tr>
+                <tr><td><strong>Hard Capacity Reserve</strong></td><td><span class="tag-case">≥ 5.0% DC Capacity</span></td><td>P_dc_serv(t) ≤ 0.95 * P_dc_installed; reserves ≥ 5% uncommitted capacity for emergency fleets</td></tr>
+                <tr><td><strong>Hard Swap-Pack Reserve</strong></td><td><span class="tag-case">≥ 5.0% Pack Inventory</span></td><td>N_avail(t) ≥ 0.05 * N_total_packs; guarantees emergency vehicle swap availability 24/7</td></tr>
+                <tr><td><strong>Dynamic Retail Tariff Band</strong></td><td><span class="tag-case">±20% Prev-Day Avg</span></td><td>0.80 * R_prev ≤ R(t) ≤ 1.20 * R_prev; bounded dynamic customer pricing corridor</td></tr>
+                <tr><td><strong>Service Reliability Target</strong></td><td><span class="tag-case">≥ 89.7%</span></td><td>Demanded energy delivery SLA (evaluated against 78.0% unoptimized baseline)</td></tr>
+                <tr><td><strong>Energy Loss Rate Ceiling</strong></td><td><span class="tag-case">≤ 8.0%</span></td><td>Wheeling + Substation + BESS roundtrip + Charger conversion (vs 10.0% baseline)</td></tr>
+                <tr><td><strong>Cluster EBITDA Margin</strong></td><td><span class="tag-case">> 12.0% in INR</span></td><td>(Revenue - Procurement - Degradation - Station OPEX) / Revenue > 12.0%</td></tr>
+                <tr><td><strong>Inter-Metro Power Transfer</strong></td><td><span class="tag-case">DISALLOWED (Isolated)</span></td><td>Distant metro clusters operate on independent regional buses; no unrestricted wheeling</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="taxonomy-section">
+            <h3 class="section-title-assump">🔵 ILLUSTRATIVE SIMULATION ASSUMPTIONS (Calibrated)</h3>
+            <table class="taxonomy-table">
+              <thead>
+                <tr>
+                  <th>Assumption</th>
+                  <th>Calibrated Value</th>
+                  <th>Operational Role & Benchmark Reference</th>
+                </tr>
+              </thead>
+              <tbody id="illustrativeTableBody">
+                <tr><td><strong>BESS Roundtrip Efficiency</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">88.4%</span></td><td>94% AC-DC inverter charge * 94% DC-AC discharge (LFP battery pack chemistry)</td></tr>
+                <tr><td><strong>Standard Swap Pack Size</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">5.0 kWh</span></td><td>Standard modular pack for 2W/3W commercial gig-economy fleets</td></tr>
+                <tr><td><strong>BESS Degradation Cost</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">₹0.42 / kWh</span></td><td>Cycle-life wear amortized cost reflecting 4,000 cycle lifespan</td></tr>
+                <tr><td><strong>Open-Access Solar PPA</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">₹3.65 / kWh</span></td><td>Inter-state open-access solar tariff with transmission charges</td></tr>
+                <tr><td><strong>Open-Access Wind PPA</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">₹4.15 / kWh</span></td><td>State wind generation wheeling PPA contract rate</td></tr>
+                <tr><td><strong>DISCOM Grid Tariffs</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">₹6.40 – ₹7.20 / kWh</span></td><td>State commercial base tariffs with ToD peak multiplier (1.30x–1.40x)</td></tr>
+                <tr><td><strong>IEX Regulatory Price Ceiling</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">₹10.00 / kWh</span></td><td>CERC statutory cap on Day-Ahead Market clearing spot price</td></tr>
+                <tr><td><strong>Price Elasticity of Demand</strong></td><td><span class="badge" style="border-color:#06b6d4;color:#06b6d4;">-0.32</span></td><td>Empirical price elasticity coefficient for commercial EV fleets</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Regional EV Energy Optimization Control Tower • HiGHS Mixed-Integer Linear Programming (MILP) & Probabilistic Rolling-Origin MPC • Delhi | Mumbai | Bengaluru | Hyderabad | Chennai</p>
+      <p class="validation-note" style="color: #f59e0b; margin-top: 6px; font-weight: 500;">
+        ⚠️ <strong>Engineering & Financial Validation Notice:</strong> Synthetic and illustrative simulation metrics require rigorous validation on real historical fleet telematics, actual utility bills, and finance-approved accounts.
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
