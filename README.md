@@ -1,156 +1,529 @@
-# Regional EV Energy Optimization & Control Tower Prototype
-### 1,200 MW Network • 600 MWh Storage • 5 Indian Metro Clusters (Delhi NCR, Mumbai MMR, Bengaluru, Hyderabad, Chennai)
+# EROH – Regional EV Energy Optimization & Control Tower
+
+**AI-Powered Energy Allocation, Battery Storage Optimization, IEX Market Bidding & Dynamic Pricing**
+
+<p align="center">
+  <a href="https://eroh-3.onrender.com"><strong>🚀 Live Demo – Open EROH</strong></a>
+</p>
+
+**Network Scale:** 1,200 MW · 600 MWh · 5 Indian Metro Clusters
+
+[![Live Demo](https://img.shields.io/badge/Live-Demo-success?style=for-the-badge)](https://eroh-3.onrender.com)
+![Python](https://img.shields.io/badge/Python-3-blue?style=for-the-badge&logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi)
+![Optimization](https://img.shields.io/badge/Optimization-MILP-orange?style=for-the-badge)
 
 ---
 
-## 1. Executive Summary & Problem Formulation
+## 1. Overview
 
-This project is a clean, modular, and mathematically rigorous Python prototype for an **AI-powered energy allocation, battery storage optimization, IEX day-ahead market bidding, and dynamic pricing system** across five Indian metro clusters:
+EROH (EV Energy Optimization & Control Tower) is a modular Python-based prototype designed to optimize energy procurement, EV charging allocation, battery storage utilization, electricity market participation, and dynamic customer pricing across five major Indian metropolitan clusters.
 
-1. **Delhi NCR** (320 MW / 160 MWh)
-2. **Mumbai MMR** (280 MW / 140 MWh)
-3. **Bengaluru** (240 MW / 120 MWh)
-4. **Hyderabad** (200 MW / 100 MWh)
-5. **Chennai** (160 MW / 80 MWh)
+The system combines forecasting, Mixed-Integer Linear Programming (MILP), Model Predictive Control (MPC), and scenario-based stress testing to demonstrate how a large-scale EV charging network can manage energy demand, operational constraints, and procurement costs.
 
-### High-Level Specifications:
-- **Total Network Installed Capacity**: **1,200 MW**
-  - **60% DC Fast-Charging**: **720 MW**
-  - **40% Battery Swapping**: **480 MW** (96,000 standard 5 kWh modules across hubs)
-- **Total Storage Capacity**: **600 MWh** (Stationary BESS + ready swap pack buffer)
-- **Energy Sourcing Mix**:
-  - **~35% Solar & Wind Open-Access** long-term power purchase agreements (PPA)
-  - **DISCOM Grid Power** with commercial Time-of-Day (ToD) peak surcharges
-  - **IEX Day-Ahead Market (DAM)** spot procurement & arbitrage bidding
-- **Regulatory Dynamic Pricing Corridor**: Customer retail tariffs bounded within **±20% of previous day average tariff** ($0.80 \bar{R}_{prev} \le R_t \le 1.20 \bar{R}_{prev}$) with price elasticity of demand.
-- **Hard Reserve Constraints**: At least **$\ge 5.0\%$ uncommitted DC capacity** and **$\ge 5.0\%$ ready swap-pack inventory** reserved exclusively for priority and emergency fleets.
-- **Target KPI Benchmarks**:
-  - **Service Reliability**: **$\ge 89.7\%$** (vs. 78.0% unoptimized baseline)
-  - **Energy Loss Rate**: **$\le 8.0\%$** (vs. 10.0% unoptimized baseline)
-  - **Cluster EBITDA Margin**: **$> 12.0\%$** in Indian Rupees (INR)
-  - **5% Reserve Compliance**: **100% compliant** across all operating hours.
+### Network Coverage
+
+| Metro Cluster | Installed Capacity | Storage Capacity |
+|---|---:|---:|
+| Delhi NCR | 320 MW | 160 MWh |
+| Mumbai MMR | 280 MW | 140 MWh |
+| Bengaluru | 240 MW | 120 MWh |
+| Hyderabad | 200 MW | 100 MWh |
+| Chennai | 160 MW | 80 MWh |
+| **Total** | **1,200 MW** | **600 MWh** |
+
+### Key Infrastructure Specifications
+
+| Parameter | Specification |
+|---|---:|
+| Total installed network capacity | 1,200 MW |
+| DC fast-charging allocation | 720 MW (60%) |
+| Battery swapping allocation | 480 MW (40%) |
+| Total storage capacity | 600 MWh |
+| Renewable open-access target | Approximately 35% |
+| DC capacity reserve | Minimum 5% |
+| Ready swap-pack reserve | Minimum 5% |
+| Dynamic tariff corridor | ±20% of previous-day average tariff |
+
+**Energy sourcing strategy:**
+- Solar and wind open-access procurement through long-term PPAs.
+- DISCOM grid electricity with commercial Time-of-Day (ToD) pricing.
+- Indian Energy Exchange (IEX) Day-Ahead Market (DAM) procurement and arbitrage.
 
 ---
 
-## 2. Architecture & Modular Structure
+## 2. Problem Statement
 
-```
-eroh/
+Large-scale EV charging networks face several interconnected challenges:
+
+1. **Demand variability:** EV charging demand fluctuates throughout the day and across geographical clusters.
+2. **Electricity procurement costs:** Grid tariffs and market prices vary, particularly during peak demand hours.
+3. **Battery management:** Charging and discharging decisions must respect battery capacity, efficiency, and operational constraints.
+4. **Renewable intermittency:** Solar and wind generation can fluctuate due to weather conditions.
+5. **Service reliability:** Charging infrastructure must maintain sufficient capacity for customer demand and priority fleets.
+6. **Dynamic pricing:** Retail tariffs must balance operational economics with customer affordability and demand responsiveness.
+
+EROH addresses these challenges through an integrated forecasting and optimization framework.
+
+---
+
+## 3. System Architecture
+
+The project follows a modular architecture with separate components for data generation, forecasting, optimization, control, scenario management, and web-based visualization.
+
+```text
+EROH/
 │
 ├── core/
 │   ├── __init__.py
-│   ├── config.py             # Cluster definitions, 1,200 MW allocations, case constraints, INR economics
-│   ├── data_generator.py      # Multi-year hourly synthetic data generator (weather, demand, renewables, IEX, SoH)
-│   ├── forecaster.py         # Chronological non-shuffled rolling-origin backtest & P10/P50/P90 quantile forecasting
-│   ├── milp_optimizer.py     # scipy.optimize.milp (HiGHS) mathematical scheduler with BESS & swap dynamics
-│   ├── mpc_controller.py     # Hourly closed-loop Model Predictive Control (MPC) receding-horizon engine
-│   └── scenario_manager.py   # Stress test scenarios (Normal, Monsoon, Summer Heatwave, IEX Price Spike)
+│   ├── config.py
+│   │   └── Cluster definitions, network allocations,
+│   │       case constraints and economic parameters
+│   │
+│   ├── data_generator.py
+│   │   └── Synthetic hourly demand, weather,
+│   │       renewable generation, IEX prices and SoH
+│   │
+│   ├── forecaster.py
+│   │   └── Rolling-origin forecasting and
+│   │       P10/P50/P90 prediction
+│   │
+│   ├── milp_optimizer.py
+│   │   └── scipy.optimize.milp (HiGHS)
+│   │       for constrained energy scheduling
+│   │
+│   ├── mpc_controller.py
+│   │   └── Receding-horizon Model Predictive Control
+│   │
+│   └── scenario_manager.py
+│       └── Operational and market stress scenarios
 │
 ├── app/
-│   ├── server.py             # FastAPI REST server providing live on-the-fly optimization APIs
+│   ├── server.py
+│   │   └── FastAPI REST backend
+│   │
 │   └── static/
-│       ├── index.html        # Interactive Control Tower Single-Page Dashboard
-│       ├── style.css         # Modern dark-theme glassmorphism styling
-│       └── app.js            # Reactive Chart.js visualizations, scenario toggles, parameter taxonomy
+│       ├── index.html
+│       ├── style.css
+│       └── app.js
 │
 ├── tests/
-│   └── test_system.py        # Automated unit test suite verifying mathematical formulations & constraints
+│   └── test_system.py
 │
-├── main.py                   # End-to-end runnable CLI prototype demonstrating all components
-└── README.md                 # System documentation & parameter taxonomy
+├── main.py
+├── requirements.txt
+└── README.md
+```
+
+### Architecture Workflow
+
+```text
+Synthetic Data Generation
+          |
+          v
+Demand & Renewable Forecasting
+          |
+          v
+MILP Energy Optimization
+          |
+          v
+Model Predictive Control
+          |
+          v
+Energy Allocation & Scheduling
+          |
+          v
+Scenario Stress Testing
+          |
+          v
+FastAPI Backend
+          |
+          v
+Interactive Control Tower Dashboard
 ```
 
 ---
 
-## 3. Mathematical Optimization Formulation (MILP)
+## 4. Mathematical Optimization Formulation
 
-At each horizon step $t \in \{0, \dots, T-1\}$ ($T=24$ hours), the solver minimizes the net cost (or maximizes EBITDA):
+EROH uses Mixed-Integer Linear Programming (MILP) to optimize energy allocation and procurement decisions over a 24-hour scheduling horizon.
 
-$$\min \sum_{t=0}^{T-1} \left[ C_{\text{procure}}(t) + C_{\text{deg}}(t) + C_{\text{unserved}}(t) - \text{Revenue}(t) \right]$$
+Let:
 
-### Key Equations & Constraints:
+- \(t\) represent the hourly time index.
+- \(T=24\) represent the optimization horizon.
+- \(P\) represent power variables in MW.
+- \(E\) represent stored energy in MWh.
+- \(R\) represent customer retail tariffs.
 
-1. **Energy Balance at Cluster Bus**:
-   $$(1 - L_{\text{oa}}) (P_{\text{solar}, t} + P_{\text{wind}, t}) + (1 - L_{\text{grid}}) (P_{\text{discom}, t} + P_{\text{iex\_buy}, t}) + P_{\text{bess\_dis}, t} = P_{\text{dc\_serv}, t} + P_{\text{swap\_ch}, t} + P_{\text{bess\_ch}, t} + P_{\text{iex\_sell}, t}$$
+### 4.1 Objective Function
 
-2. **Stationary BESS Mutual Exclusion & SoC Transitions**:
-   $$u_{\text{bess\_ch}, t} + u_{\text{bess\_dis}, t} \le 1, \quad u \in \{0, 1\}$$
-   $$P_{\text{bess\_ch}, t} \le P_{\text{max}} u_{\text{bess\_ch}, t}, \quad P_{\text{bess\_dis}, t} \le P_{\text{max}} u_{\text{bess\_dis}, t}$$
-   $$E_{\text{bess}, t} = E_{\text{bess}, t-1} + \eta_{\text{ch}} P_{\text{bess\_ch}, t-1} \Delta t - \frac{1}{\eta_{\text{dis}}} P_{\text{bess\_dis}, t-1} \Delta t$$
-   $$0.10 \cdot E_{\text{cap}} \le E_{\text{bess}, t} \le 0.95 \cdot E_{\text{cap}}$$
+The optimization objective minimizes net operational cost while accounting for procurement, battery degradation, unserved demand, and revenue.
 
-3. **Swappable Pack Inventory Dynamics**:
-   $$N_{\text{avail}, t} = N_{\text{avail}, t-1} - S_{t-1} + \left\lfloor \frac{P_{\text{swap\_ch}, t-1} \cdot \eta_{\text{pack}} \cdot \Delta t}{E_{\text{pack}}} \right\rfloor$$
-   $$N_{\text{avail}, t} \ge 0.05 \cdot N_{\text{total\_packs}} \quad \text{(Hard $\ge 5\%$ Standby Reserve Mandate)}$$
+\[
+\min \sum_{t=0}^{T-1}
+\left[
+C_{\mathrm{procure}}(t)
++C_{\mathrm{deg}}(t)
++C_{\mathrm{unserved}}(t)
+-\mathrm{Revenue}(t)
+\right]
+\]
 
-4. **Dynamic Customer Tariffs & Price Elasticity**:
-   $$0.80 \cdot \bar{R}_{\text{prev}} \le R_t \le 1.20 \cdot \bar{R}_{\text{prev}}$$
-   $$D_{\text{dc}, t}(R_t) = D_{\text{dc\_base}, t} \cdot \left[1 - \epsilon \frac{R_t - \bar{R}_{\text{prev}}}{\bar{R}_{\text{prev}}}\right]$$
-   $$P_{\text{dc\_serv}, t} \le (1.0 - 0.05) \cdot P_{\text{dc\_installed}} \quad \text{(Hard $\ge 5\%$ DC Capacity Headroom)}$$
+### 4.2 Energy Balance
+
+The cluster energy balance accounts for renewable generation, grid procurement, battery discharge, charging demand, and market transactions.
+
+\[
+\begin{aligned}
+&(1-L_{\mathrm{oa}})
+(P_{\mathrm{solar},t}+P_{\mathrm{wind},t})\\
+&+(1-L_{\mathrm{grid}})
+(P_{\mathrm{discom},t}+P_{\mathrm{iex\_buy},t})\\
+&+P_{\mathrm{bess\_dis},t}\\
+&=P_{\mathrm{dc\_serv},t}
++P_{\mathrm{swap\_ch},t}
++P_{\mathrm{bess\_ch},t}
++P_{\mathrm{iex\_sell},t}
+\end{aligned}
+\]
+
+### 4.3 Stationary Battery Energy Storage System (BESS)
+
+Charging and discharging are mutually exclusive:
+
+\[
+u_{\mathrm{ch},t}+u_{\mathrm{dis},t}\leq 1
+\]
+
+\[
+u_{\mathrm{ch},t},u_{\mathrm{dis},t}\in\{0,1\}
+\]
+
+Power limits:
+
+\[
+P_{\mathrm{bess\_ch},t}\leq
+P_{\max}u_{\mathrm{ch},t}
+\]
+
+\[
+P_{\mathrm{bess\_dis},t}\leq
+P_{\max}u_{\mathrm{dis},t}
+\]
+
+State-of-charge transition:
+
+\[
+\begin{aligned}
+E_{\mathrm{bess},t}
+=&E_{\mathrm{bess},t-1}\\
+&+\eta_{\mathrm{ch}}P_{\mathrm{bess\_ch},t-1}\Delta t\\
+&-\frac{P_{\mathrm{bess\_dis},t-1}\Delta t}
+{\eta_{\mathrm{dis}}}
+\end{aligned}
+\]
+
+Operating limits:
+
+\[
+0.10E_{\mathrm{cap}}\leq E_{\mathrm{bess},t}
+\leq 0.95E_{\mathrm{cap}}
+\]
+
+### 4.4 Battery Swapping Inventory
+
+The ready-to-use battery inventory evolves based on swapping demand and newly recharged packs.
+
+\[
+N_{\mathrm{avail},t}
+=
+N_{\mathrm{avail},t-1}
+-S_{t-1}
++
+\left\lfloor
+\frac{
+P_{\mathrm{swap\_ch},t-1}
+\eta_{\mathrm{pack}}\Delta t
+}{
+E_{\mathrm{pack}}
+}
+\right\rfloor
+\]
+
+Minimum inventory reserve:
+
+\[
+N_{\mathrm{avail},t}
+\geq 0.05N_{\mathrm{total\_packs}}
+\]
+
+This ensures at least 5% of the total battery inventory remains reserved.
+
+### 4.5 Dynamic Customer Pricing
+
+Retail tariffs are constrained within a regulatory pricing corridor:
+
+\[
+0.80\bar R_{\mathrm{prev}}
+\leq R_t\leq
+1.20\bar R_{\mathrm{prev}}
+\]
+
+Demand responds to price changes through an elasticity-based relationship:
+
+\[
+D_{\mathrm{dc},t}(R_t)
+=
+D_{\mathrm{dc\_base},t}
+\left[
+1-\epsilon
+\frac{R_t-\bar R_{\mathrm{prev}}}
+{\bar R_{\mathrm{prev}}}
+\right]
+\]
+
+DC charging capacity headroom:
+
+\[
+P_{\mathrm{dc\_serv},t}
+\leq 0.95P_{\mathrm{dc\_installed}}
+\]
+
+This reserves at least 5% of installed DC capacity for priority and emergency fleets.
 
 ---
 
-## 4. Parameter Taxonomy: Case Constraints vs. Illustrative Assumptions
+## 5. Parameter Taxonomy
 
-| Parameter Name | Value / Bound | Classification | Operational Role |
-| :--- | :--- | :--- | :--- |
-| **Total Network Installed Capacity** | **1,200 MW** | **Case Constraint** | Total fleet infrastructure across 5 metros |
-| **DC Fast-Charging Share** | **60% (720 MW)** | **Case Constraint** | Dedicated direct DC high-voltage fast charging |
-| **Battery Swapping Share** | **40% (480 MW)** | **Case Constraint** | Dedicated automated swapping station inventory |
-| **Total Storage Volume** | **600 MWh** | **Case Constraint** | Stationary BESS (360 MWh) + Swappable packs (240 MWh) |
-| **Renewable Open-Access Share** | **~35% Target** | **Case Constraint** | Interstate wheeling PPA contracts for clean power |
-| **Uncommitted Capacity Reserve** | **$\ge 5.0\%$ (Hard)** | **Case Constraint** | Uncommitted DC capacity reserved for priority fleets |
-| **Swap-Pack Standby Reserve** | **$\ge 5.0\%$ (Hard)** | **Case Constraint** | Ready charged swap-packs reserved 24/7 |
-| **Dynamic Retail Tariff Band** | **$\pm 20\%$ of Prev Avg** | **Case Constraint** | Regulatory consumer protection dynamic corridor |
-| **Service Reliability Target** | **$\ge 89.7\%$** | **Case Constraint** | Primary SLA target (vs. 78.0% baseline) |
-| **Energy Loss Rate Ceiling** | **$\le 8.0\%$** | **Case Constraint** | Total system losses (vs. 10.0% baseline) |
-| **Cluster EBITDA Margin Target** | **$> 12.0\%$ (in INR)** | **Case Constraint** | Cluster commercial EBITDA viability |
-| BESS Roundtrip Efficiency | 88.4% (94% chg / 94% disch) | *Illustrative Assumption* | High-efficiency LFP battery pack chemistry |
-| Swap Module Size | 5.0 kWh per pack | *Illustrative Assumption* | Standard commercial 2W/3W swappable pack size |
-| BESS Cell Degradation Cost | ₹0.42 / kWh cycle | *Illustrative Assumption* | Amortized battery wear replacement cost |
-| Open-Access Solar PPA Price | ₹3.65 / kWh | *Illustrative Assumption* | Long-term utility solar PPA tariff |
-| Open-Access Wind PPA Price | ₹4.15 / kWh | *Illustrative Assumption* | Long-term wind generation wheeling tariff |
-| DISCOM Grid Tariffs | ₹6.40 – ₹7.20 / kWh | *Illustrative Assumption* | State commercial base tariffs with ToD peak multiplier (1.30x–1.40x) |
-| IEX Price Regulatory Ceiling | ₹10.00 / kWh | *Illustrative Assumption* | CERC statutory Day-Ahead Market price cap |
-| Price Elasticity of Demand | -0.32 | *Illustrative Assumption* | Empirical fleet price responsiveness coefficient |
+The system distinguishes between case constraints and illustrative modeling assumptions.
 
----
+### 5.1 Case Constraints
 
-## 5. Scenario Stress Tests & Benchmark Verification
+| Parameter | Value / Bound | Operational Role |
+|---|---:|---|
+| Total installed capacity | 1,200 MW | Network infrastructure |
+| DC fast-charging share | 60% (720 MW) | Direct EV fast charging |
+| Battery swapping share | 40% (480 MW) | Swapping infrastructure |
+| Total storage volume | 600 MWh | BESS and swap-pack buffer |
+| Renewable open-access target | ~35% | Renewable procurement |
+| DC capacity reserve | ≥5% | Priority fleet headroom |
+| Swap-pack reserve | ≥5% | Ready battery inventory |
+| Retail tariff corridor | ±20% | Customer pricing protection |
+| Service reliability target | ≥89.7% | Service-level objective |
+| Energy loss ceiling | ≤8.0% | Efficiency objective |
+| EBITDA margin target | >12.0% | Commercial viability |
 
-The system includes 4 stress-test scenarios executed against the mathematical optimizer:
+### 5.2 Illustrative Modeling Assumptions
 
-1. **Normal Weekday**: Baseline diurnal solar curve, moderate wind, standard ToD DISCOM rates.
-2. **Monsoon Cloudburst**: Sudden 80% daytime solar generation collapse, high wind gusts, requiring rapid BESS discharge and dynamic grid ramp-up.
-3. **Summer Heatwave (46°C)**: Extreme ambient temperatures causing +22% EV cabin cooling load surge and thermal derating of battery converters.
-4. **IEX Price Spike**: Market clearing price surges to the ₹10.00/kWh regulatory cap during evening hours (17:00-22:00); BESS and stored open-access power offset costly grid purchases.
+| Parameter | Assumed Value | Operational Role |
+|---|---:|---|
+| BESS round-trip efficiency | 88.4% | Battery conversion efficiency |
+| Charging efficiency | 94% | Charging losses |
+| Discharging efficiency | 94% | Discharging losses |
+| Swap module size | 5 kWh | Standard battery module |
+| BESS degradation cost | ₹0.42/kWh cycle | Battery wear cost |
+| Solar PPA price | ₹3.65/kWh | Renewable procurement |
+| Wind PPA price | ₹4.15/kWh | Renewable procurement |
+| DISCOM grid tariff | ₹6.40–₹7.20/kWh | Grid procurement |
+| ToD peak multiplier | 1.30x–1.40x | Peak tariff adjustment |
+| IEX price ceiling assumption | ₹10.00/kWh | Market price limit |
+| Price elasticity coefficient | -0.32 | Customer demand response |
 
-### Benchmark Results (Delhi NCR Hub):
-
-| Scenario | Service Reliability (Target $\ge 89.7\%$) | Energy Loss Rate (Target $\le 8.0\%$) | EBITDA Margin (Target $> 12.0\%$) | 5% Reserve SLA | Daily Net EBITDA |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Normal Weekday** | **100.0% [PASS]** | **6.8% [PASS]** | **68.1% [PASS]** | **100% [PASS]** | **₹23,360,671** |
-| **Monsoon Cloudburst** | **100.0% [PASS]** | **6.4% [PASS]** | **67.3% [PASS]** | **100% [PASS]** | **₹23,455,961** |
-| **Summer Heatwave** | **100.0% [PASS]** | **6.6% [PASS]** | **59.9% [PASS]** | **100% [PASS]** | **₹30,093,929** |
-| **IEX Price Spike** | **100.0% [PASS]** | **6.1% [PASS]** | **57.3% [PASS]** | **100% [PASS]** | **₹21,802,011** |
+*These values are illustrative modeling assumptions and should not be interpreted as verified real-time market quotations or regulatory approvals.*
 
 ---
 
-## 6. How to Run
+## 6. Scenario Stress Testing
 
-### A. Run Automated Unit Tests
+EROH includes four operational stress-test scenarios to evaluate the optimization framework under different operating conditions.
+
+| Scenario | Description |
+|---|---|
+| Normal Weekday | Standard demand, solar generation, wind availability, and ToD tariffs |
+| Monsoon Cloudburst | 80% daytime solar generation reduction with increased wind variability |
+| Summer Heatwave | 46°C ambient temperature, 22% additional cooling load, and battery converter derating |
+| IEX Price Spike | Market prices rise to the assumed ₹10/kWh ceiling during evening peak hours |
+
+### Benchmark Results – Delhi NCR Hub
+
+The following results are the prototype's reported benchmark outputs.
+
+| Scenario | Service Reliability | Energy Loss | EBITDA Margin | Reserve Compliance | Daily Net EBITDA |
+|---|---:|---:|---:|---:|---:|
+| Normal Weekday | 100.0% | 6.8% | 68.1% | 100% | ₹23,360,671 |
+| Monsoon Cloudburst | 100.0% | 6.4% | 67.3% | 100% | ₹23,455,961 |
+| Summer Heatwave | 100.0% | 6.6% | 59.9% | 100% | ₹30,093,929 |
+| IEX Price Spike | 100.0% | 6.1% | 57.3% | 100% | ₹21,802,011 |
+
+### Target Compliance
+
+| KPI | Target | Reported Benchmark |
+|---|---:|---:|
+| Service reliability | ≥89.7% | 100% |
+| Energy loss rate | ≤8.0% | 6.1–6.8% |
+| EBITDA margin | >12.0% | 57.3–68.1% |
+| Reserve compliance | 100% | 100% |
+
+**Important:** These are synthetic prototype simulation results, not measured results from a deployed commercial EV charging network. Real-world performance requires validation using operational data, actual tariffs, equipment specifications, and field trials.
+
+---
+
+## 7. Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Programming Language | Python |
+| API Backend | FastAPI |
+| ASGI Server | Uvicorn |
+| Numerical Computing | NumPy |
+| Data Processing | Pandas |
+| Optimization Solver Interface | SciPy MILP (HiGHS) |
+| Forecasting | Scikit-learn |
+| Frontend | HTML, CSS, JavaScript |
+| Visualization | Chart.js |
+| Deployment | Render |
+| Version Control | Git & GitHub |
+
+---
+
+## 8. Getting Started
+
+### Prerequisites
+
+- Python 3.10 or later
+- Git
+- pip
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/Nivedita-gupta1411/EROH.git
+cd EROH
+```
+
+### Step 2: Create a Virtual Environment
+
+**Windows:**
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Linux / macOS:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Run Automated Tests
+
 ```bash
 python -m unittest tests/test_system.py
 ```
 
-### B. Run End-to-End Prototype CLI
+### Step 5: Run the End-to-End CLI Prototype
+
 ```bash
 python main.py
 ```
-This runs synthetic generation, chronological rolling-origin backtesting (P10/P50/P90 WAPE & MAE), MILP optimization, and scenario stress testing.
 
-### C. Launch Interactive Control Tower Web App
+This executes the prototype workflow, including synthetic data generation, forecasting, MILP optimization, and scenario stress testing.
+
+### Step 6: Launch the Web Application
+
 ```bash
 python app/server.py
 ```
-Then open your browser at **`http://127.0.0.1:8000`**. You can also double-click `app/static/index.html` to run in standalone browser mode.
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
+
+## 9. Live Deployment
+
+The EROH web application is deployed on Render.
+
+**Live Application:** https://eroh-3.onrender.com
+
+**API Documentation:** https://eroh-3.onrender.com/docs
+
+**API Parameters:** https://eroh-3.onrender.com/api/parameters
+
+The deployed application provides access to the interactive control tower and its exposed backend APIs.
+
+*Note: The free hosting instance may spin down after inactivity, causing a delay on the first request.*
+
+---
+
+## 10. Testing & Validation
+
+The project includes an automated test suite:
+
+```text
+tests/test_system.py
+```
+
+Run it using:
+
+```bash
+python -m unittest tests/test_system.py
+```
+
+The test suite is intended to verify the mathematical formulations, system constraints, and optimization behavior implemented in the prototype.
+
+---
+
+## 11. Future Scope
+
+Potential extensions to the prototype include:
+
+- Integration with real-time EV charging station telemetry.
+- Live weather and renewable generation APIs.
+- Actual IEX market data integration.
+- More advanced probabilistic demand forecasting.
+- Battery State-of-Health (SoH) and degradation modeling.
+- Multi-objective optimization for cost, emissions, and reliability.
+- Production-grade authentication and role-based access.
+- Cloud database integration and persistent operational monitoring.
+- Deployment validation using real-world operational datasets.
+
+---
+
+## 12. Important Modeling Note
+
+The project specification mentions 96,000 standard 5 kWh swap modules, which corresponds to 480 MWh of nominal pack energy. The storage allocation table separately specifies 240 MWh for swappable packs (360 MWh stationary BESS + 240 MWh swap packs = 600 MWh total).
+
+These two figures need reconciliation before treating the storage allocation as a finalized system specification.
+
+---
+
+## 13. Project Disclaimer
+
+EROH is an engineering and optimization prototype developed to demonstrate an integrated approach to EV energy management.
+
+The data, tariff values, forecasts, and benchmark outputs are illustrative or synthetic unless explicitly identified otherwise. The prototype is not a certified grid-control platform, a live IEX trading system, or a substitute for regulatory, electrical, or commercial validation.
+
+---
+
+## Author
+
+**Nivedita Gupta**
+
+GitHub: [Nivedita-gupta1411](https://github.com/Nivedita-gupta1411)
+
+Project Repository: [EROH](https://github.com/Nivedita-gupta1411/EROH)
+
+**🚀 Explore the Live Demo:** https://eroh-3.onrender.com
